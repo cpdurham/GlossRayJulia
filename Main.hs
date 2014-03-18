@@ -87,11 +87,11 @@ type World = (Scalar (U Float), Scalar (Vec3 Float), Scalar (Quaternion Float))
 myInitState :: Ray
 myInitState = Ray viewP viewD k screen mouse prevMouse quaternion
   where k = Vec3 (1 :+ 0) (1 :+ 0) (1 :+ 0)
-        screen = (100,100)
+        screen = (1600,1600)
         mouse = (0,0)
         prevMouse = (0,0)
-        viewP = (Vec3 0 0 0)
-        viewD = U $ Vec4 0 1 0 0
+        viewP = zero
+        viewD = unitU
         quaternion = initQuaternion
         
 initQuaternion = toQ $ Vec4 (-0.2) 0.6 0.2 0.2
@@ -123,19 +123,18 @@ myEventHandler (EventKey key keyState mod _) = (viewQ %~ qHandler) . (keys %~ ke
         qHandler = 
           case key of
             Char c -> case c of
-              'V' -> qxLens +~ step
-              'v' -> qxLens -~ step
-              'B' -> qyLens +~ step
-              'b' -> qyLens -~ step
-              'N' -> qzLens +~ step
-              'n' -> qzLens -~ step
-              'M' -> qwLens +~ step
-              'm' -> qwLens -~ step
+              'V' -> qxLens -~ step
+              'v' -> qxLens +~ step
+              'B' -> qyLens -~ step
+              'b' -> qyLens +~ step
+              'N' -> qzLens -~ step
+              'n' -> qzLens +~ step
+              'M' -> qwLens -~ step
+              'm' -> qwLens +~ step
               'r' -> const initQuaternion
               _ -> id
-              where step = -0.05
+              where step = 0.05
             _ -> id
-              
                     
 myEventHandler (EventResize r) = screenDim .~ r
 {-# INLINE myEventHandler #-}
@@ -150,7 +149,6 @@ myIterationHandler' seconds = do
   viewD' <- viewD <%= (.*. (rotU' yaw xrad .*. rotU' pitch yrad))
   direction <- fmap (actU viewD') $ use (keys.keyVector)
   viewP %= (&+ direction &* (seconds * 2))
-  return ()
 {-# INLINE myIterationHandler' #-}
   
 -- Return and reset the mouse movement difference in radians
@@ -176,15 +174,13 @@ g accWorld point = bool &&* bool2 ? (R.black, R.white)
   where (x,z) = xyOfPoint point
         (d',p') = buildVector (Vec3 x 0 z) (-10)
         (d,p,q) = unliftWorld accWorld
---          where unliftWorld :: Acc World -> (U (Exp Float), Vec3 (Exp Float))
---                unliftWorld a = (unlift . the) *** (unlift . the) $ unlift a
         (d'',p'') = (actU' d d', actU d p' &+ p)
         (bool,ps) = checkIntersection bSphere d'' p''
         (bool2, _) = explore bSphere d'' ps
         rot = unitU
-        bSphere = BoundingSphere ((Vec3 0 3 0, 3, rot)) f
+        bSphere = BoundingSphere (Vec3 (-0.5) 4 0.5, 3, rot) f
           where f d2 p2 = second unlift . untup2 $ exploreJulia (A.lift q) (A.lift d2) (A.lift p2)
-                
+
 
 unliftWorld :: Acc World -> (U (Exp Float), Vec3 (Exp Float), Quaternion (Exp Float))
 unliftWorld accWorld = (unlift $ the d, unlift $ the p, unlift $ the q)
